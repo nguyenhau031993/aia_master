@@ -1,0 +1,32 @@
+name: aia_master
+description: "Sieu ung dung AIA Finance: Tai chinh - Lich Van Nien - Than Tai."
+publish_to: 'none' # Dự án riêng tư, không public lên kho chung
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # --- THƯ VIỆN GIAO DIỆN (UI) ---
+  # Icon chuẩn cho iOS
+  cupertino_icons: ^1.0.8
+  
+  # Font chữ Google (Dùng cho toàn bộ App)
+  google_fonts: ^6.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  
+  # Bộ kiểm tra lỗi code chuẩn
+  flutter_lints: ^3.0.0
+
+flutter:
+  # Kích hoạt thiết kế Material Design (Chuẩn Android)
+  uses-material-design: true
+
+  # (Sau này sẽ thêm ảnh và font riêng ở dưới đây)
