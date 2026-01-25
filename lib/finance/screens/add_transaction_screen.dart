@@ -5,27 +5,47 @@ import '../models/finance_model.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   const AddTransactionScreen({super.key});
+
   @override
   State<AddTransactionScreen> createState() => _AddTransactionScreenState();
 }
 
 class _AddTransactionScreenState extends State<AddTransactionScreen> {
-  String _input = "0";
+  String _inputAmount = "0";
   TransactionType _type = TransactionType.expense;
-  CategoryItem? _cat;
-  final _note = TextEditingController();
+  CategoryItem? _selectedCategory;
+  final TextEditingController _noteController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _cat = FinanceData.categories[0];
+    _selectedCategory = FinanceData.expenseCategories[0]; // Mặc định chọn cái đầu
   }
 
-  void _tap(String v) => setState(() => v == 'DEL' ? (_input.length > 1 ? _input = _input.substring(0, _input.length - 1) : _input = "0") : (_input == "0" ? _input = v : _input += v));
-  
+  // Xử lý bàn phím số
+  void _onKeyTap(String value) {
+    setState(() {
+      if (value == 'DEL') {
+        _inputAmount = _inputAmount.length > 1 ? _inputAmount.substring(0, _inputAmount.length - 1) : "0";
+      } else {
+        if (_inputAmount == "0") _inputAmount = value;
+        else if (_inputAmount.length < 15) _inputAmount += value;
+      }
+    });
+  }
+
+  // Lưu dữ liệu
   void _save() {
-    if(_cat == null) return;
-    FinanceData.transactions.insert(0, Transaction(id: DateTime.now().toString(), amount: double.parse(_input), category: _cat!, date: DateTime.now(), note: _note.text));
+    double amount = double.tryParse(_inputAmount) ?? 0;
+    if (amount <= 0) return;
+
+    FinanceData.transactions.insert(0, Transaction(
+      id: DateTime.now().toString(),
+      amount: amount,
+      category: _selectedCategory!,
+      date: DateTime.now(),
+      note: _noteController.text,
+    ));
     Navigator.pop(context, true);
   }
 
@@ -33,32 +53,139 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(title: const Text("GHI CHÉP", style: TextStyle(color: Colors.black)), backgroundColor: Colors.white, elevation: 0, iconTheme: const IconThemeData(color: Colors.black)),
-      body: Column(children: [
-        Container(padding: const EdgeInsets.all(20), alignment: Alignment.centerRight, 
-          child: Text("${NumberFormat('#,###').format(double.parse(_input))} đ", style: GoogleFonts.manrope(fontSize: 40, fontWeight: FontWeight.bold, color: _type == TransactionType.expense ? Colors.red : Colors.green))),
-        
-        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          _btn("CHI TIỀN", TransactionType.expense), const SizedBox(width: 10), _btn("THU TIỀN", TransactionType.income)
-        ]),
-        
-        Expanded(child: ListView(padding: const EdgeInsets.all(16), children: [
-           const Text("Danh mục:"),
-           SizedBox(height: 80, child: ListView(scrollDirection: Axis.horizontal, children: FinanceData.getCategories(_type).map((c) => GestureDetector(
-             onTap: ()=>setState(()=>_cat=c),
-             child: Container(width: 80, margin: const EdgeInsets.only(right: 10), decoration: BoxDecoration(color: _cat==c ? c.color.withOpacity(0.2) : Colors.grey[100], borderRadius: BorderRadius.circular(10), border: _cat==c?Border.all(color: c.color):null), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(c.icon, color: c.color), Text(c.name, style: const TextStyle(fontSize: 10))]))
-           )).toList())),
-           const SizedBox(height: 10),
-           TextField(controller: _note, decoration: const InputDecoration(hintText: "Ghi chú", prefixIcon: Icon(Icons.note))),
-        ])),
-        
-        Column(children: [
-          Row(children: ['7','8','9'].map(_k).toList()), Row(children: ['4','5','6'].map(_k).toList()), Row(children: ['1','2','3'].map(_k).toList()), Row(children: ['000','0','DEL'].map(_k).toList()),
-        ]),
-        Padding(padding: const EdgeInsets.all(10), child: SizedBox(width: double.infinity, height: 50, child: ElevatedButton(onPressed: _save, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0F172A)), child: const Text("LƯU", style: TextStyle(color: Colors.white)))))
-      ]),
+      appBar: AppBar(
+        backgroundColor: Colors.white, elevation: 0,
+        leading: const BackButton(color: Colors.black),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildTypeBtn("CHI TIỀN", TransactionType.expense),
+            const SizedBox(width: 10),
+            _buildTypeBtn("THU TIỀN", TransactionType.income),
+          ],
+        ),
+        centerTitle: true,
+      ),
+      body: Column(
+        children: [
+          // 1. Hiển thị số tiền to
+          Container(
+            padding: const EdgeInsets.all(20),
+            alignment: Alignment.centerRight,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                const Text("Số tiền", style: TextStyle(color: Colors.grey)),
+                Text(
+                  "${NumberFormat('#,###').format(double.parse(_inputAmount))} đ",
+                  style: GoogleFonts.manrope(fontSize: 40, fontWeight: FontWeight.bold, color: _type == TransactionType.expense ? Colors.red : Colors.green),
+                ),
+              ],
+            ),
+          ),
+          
+          // 2. Chọn danh mục & Ghi chú
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              children: [
+                const Text("Chọn danh mục:", style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 12, runSpacing: 12,
+                  children: FinanceData.getCategories(_type).map((cat) {
+                    bool isSelected = _selectedCategory == cat;
+                    return GestureDetector(
+                      onTap: () => setState(() => _selectedCategory = cat),
+                      child: Container(
+                        width: 80, height: 80,
+                        decoration: BoxDecoration(
+                          color: isSelected ? cat.color.withOpacity(0.1) : Colors.grey[50],
+                          border: isSelected ? Border.all(color: cat.color, width: 2) : null,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(cat.icon, color: cat.color),
+                            const SizedBox(height: 4),
+                            Text(cat.name, style: const TextStyle(fontSize: 11)),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: _noteController,
+                  decoration: const InputDecoration(
+                    labelText: "Ghi chú (Ví dụ: Ăn trưa)",
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.note),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // 3. Bàn phím số
+          Column(children: [
+            Row(children: ['7','8','9'].map(_buildKey).toList()),
+            Row(children: ['4','5','6'].map(_buildKey).toList()),
+            Row(children: ['1','2','3'].map(_buildKey).toList()),
+            Row(children: ['000','0','DEL'].map(_buildKey).toList()),
+          ]),
+          
+          // Nút Lưu
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: SizedBox(
+              width: double.infinity, height: 50,
+              child: ElevatedButton(
+                onPressed: _save,
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0F172A)),
+                child: const Text("LƯU", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ),
+          )
+        ],
+      ),
     );
   }
-  Widget _k(String v) => Expanded(child: InkWell(onTap: ()=>_tap(v), child: Container(height: 60, alignment: Alignment.center, decoration: BoxDecoration(border: Border.all(color: Colors.grey[200]!)), child: v=='DEL'?const Icon(Icons.backspace):Text(v, style: const TextStyle(fontSize: 24)))));
-  Widget _btn(String t, TransactionType type) => GestureDetector(onTap: ()=>setState(()=>_type=type), child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: _type==type?(type==TransactionType.income?Colors.green:Colors.red):Colors.grey[200], borderRadius: BorderRadius.circular(20)), child: Text(t, style: TextStyle(color: _type==type?Colors.white:Colors.black))));
+
+  Widget _buildTypeBtn(String text, TransactionType type) {
+    bool isSelected = _type == type;
+    return GestureDetector(
+      onTap: () => setState(() { 
+        _type = type; 
+        _selectedCategory = FinanceData.getCategories(type)[0];
+      }),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? (type == TransactionType.expense ? Colors.red[50] : Colors.green[50]) : Colors.grey[200],
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(text, style: TextStyle(
+          color: isSelected ? (type == TransactionType.expense ? Colors.red : Colors.green) : Colors.grey,
+          fontWeight: FontWeight.bold
+        )),
+      ),
+    );
+  }
+
+  Widget _buildKey(String value) {
+    return Expanded(
+      child: InkWell(
+        onTap: () => _onKeyTap(value),
+        child: Container(
+          height: 60,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(border: Border.all(color: Colors.grey[200]!)),
+          child: value == 'DEL' ? const Icon(Icons.backspace_outlined) : Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w500)),
+        ),
+      ),
+    );
+  }
 }
